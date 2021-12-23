@@ -1,0 +1,6 @@
+rootProject.name = 'key-push'
+include 'server'
+include 'wallet'
+include 'master-client'
+include 'common'
+

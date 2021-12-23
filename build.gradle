@@ -1,0 +1,39 @@
+subprojects {
+    apply plugin: 'java'
+
+    group('org.example')
+    version('1.0-SNAPSHOT')
+
+    // JVM 版本号要求
+    sourceCompatibility = 17
+    targetCompatibility = 17
+
+    // java编译的时候缺省状态下会因为中文字符而失败
+    [compileJava, compileTestJava, javadoc]*.options*.encoding = 'UTF-8'
+
+
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+        }
+        mavenCentral()
+    }
+
+    dependencies {
+        runtimeOnly 'org.bouncycastle:bcprov-ext-jdk15to18:1.70'
+        implementation 'commons-codec:commons-codec:1.14'
+        implementation 'org.slf4j:slf4j-api:1.7.32'
+        runtimeOnly 'ch.qos.logback:logback-classic:1.2.9'
+        compileOnly 'org.projectlombok:lombok:1.18.22'
+        annotationProcessor 'org.projectlombok:lombok:1.18.22'
+
+        testCompileOnly 'org.projectlombok:lombok:1.18.22'
+        testAnnotationProcessor 'org.projectlombok:lombok:1.18.22'
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
