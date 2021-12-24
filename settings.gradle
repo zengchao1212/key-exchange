@@ -1,6 +1,6 @@
 rootProject.name = 'key-push'
 include 'server'
-include 'wallet'
+include 'wallet-client'
 include 'master-client'
 include 'common'
 
