@@ -4,11 +4,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 
 import javax.crypto.KeyAgreement;
+import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.List;
@@ -19,16 +21,15 @@ import static org.example.MessageType.*;
 
 @Slf4j
 public class ClientApplication {
-    protected String secretKey;
-    private AtomicBoolean shutdown;
-    private SocketChannel socketChannel;
-    private Selector selector;
-    private PrivateKey privateKey;
-    private Integer participatorCount;
-    private Integer seqId;
-    private List<Key> allMidKey;
-    private KeyAgreement keyAgreement;
-    private ParticipatorInfo.Type type;
+    protected final SocketChannel socketChannel;
+    private final AtomicBoolean shutdown;
+    private final Selector selector;
+    private final List<Key> allMidKey;
+    private final ParticipatorInfo.Type type;
+    protected volatile SecretKey secretKey;
+    private volatile PrivateKey privateKey;
+    private volatile Integer participatorCount;
+    private volatile KeyAgreement keyAgreement;
 
     public ClientApplication(ParticipatorInfo.Type type) throws IOException {
         shutdown = new AtomicBoolean(false);
@@ -99,7 +100,7 @@ public class ClientApplication {
         }
     }
 
-    private void read(SelectionKey key) throws IOException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException {
+    private void read(SelectionKey key) throws Exception {
         Message message = Message.read(socketChannel);
         if (message.getMessageType() == CLIENT_ID) {
             readClientId(message, key);
@@ -111,14 +112,16 @@ public class ClientApplication {
             readClientPubKey(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readClientMidKey(message, key);
+        } else if (message.getMessageType() == ENCRYPT_DATA) {
+            readEncryptData(message, key);
         } else {
             readOther(message, key);
         }
     }
 
     private void readClientId(Message message, SelectionKey key) throws IOException {
-        seqId = (int) message.getData()[0];
-        Message.write(CLIENT_ID, new byte[]{seqId.byteValue()}, socketChannel);
+        int seqId = (int) message.getData()[0];
+        Message.write(CLIENT_ID, new byte[]{(byte) seqId}, socketChannel);
     }
 
     private void readParticipatorCount(Message message, SelectionKey key) {
@@ -136,27 +139,35 @@ public class ClientApplication {
 
     private void readClientPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, IOException {
         keyAgreement = KeyExchange.getKeyAgreement();
-        Key midKey = KeyExchange.generateSecretKey(keyAgreement, privateKey, KeyExchange.decodePublicKey(message.getData()), false);
+        Key midKey = KeyExchange.generateMiddleKey(keyAgreement, privateKey, KeyExchange.decodePublicKey(message.getData()), false);
         Message.write(MID_KEY, midKey.getEncoded(), socketChannel);
     }
 
-    private void readClientMidKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, IOException {
+    private void readClientMidKey(Message message, SelectionKey key) throws Exception {
         allMidKey.add(KeyExchange.decodeKey(message.getData()));
         if (allMidKey.size() == participatorCount - 2) {
             for (int i = 0; i < allMidKey.size() - 1; i++) {
                 keyAgreement.doPhase(allMidKey.get(i), false);
             }
             keyAgreement.doPhase(allMidKey.get(allMidKey.size() - 1), true);
-            secretKey = Hex.encodeHexString(keyAgreement.generateSecret());
+
+            secretKey = KeyExchange.generateSecretKey(keyAgreement);
             afterExchange();
         }
     }
+
+    private void readEncryptData(Message message, SelectionKey key) throws Exception {
+        byte[] data = message.getData();
+        data = KeyExchange.decrypt(secretKey, data);
+        System.out.println(new String(data, StandardCharsets.UTF_8));
+    }
+
 
     private void readOther(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidAlgorithmParameterException {
 
     }
 
-    protected void afterExchange() {
-        log.error("secret={}", secretKey);
+    protected void afterExchange() throws Exception {
+        log.error("secret={}", Hex.encodeHexString(secretKey.getEncoded()));
     }
 }

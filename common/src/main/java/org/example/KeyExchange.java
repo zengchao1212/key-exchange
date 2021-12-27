@@ -1,7 +1,8 @@
 package org.example;
 
-import javax.crypto.KeyAgreement;
+import javax.crypto.*;
 import javax.crypto.interfaces.DHPublicKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidKeySpecException;
@@ -45,8 +46,24 @@ public class KeyExchange {
         return KeyAgreement.getInstance("DH");
     }
 
-    public static Key generateSecretKey(KeyAgreement keyAgreement, PrivateKey privateKey, PublicKey publicKey, boolean lastPhase) throws NoSuchAlgorithmException, InvalidKeyException {
+    public static Key generateMiddleKey(KeyAgreement keyAgreement, PrivateKey privateKey, PublicKey publicKey, boolean lastPhase) throws NoSuchAlgorithmException, InvalidKeyException {
         keyAgreement.init(privateKey);
         return keyAgreement.doPhase(publicKey, lastPhase);
+    }
+
+    public static SecretKey generateSecretKey(KeyAgreement keyAgreement) throws NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException {
+        return new SecretKeySpec(keyAgreement.generateSecret(), 0, 16, "AES");
+    }
+
+    public static byte[] encrypt(SecretKey secretKey, byte[] data) throws IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher.doFinal(data);
+    }
+
+    public static byte[] decrypt(SecretKey secretKey, byte[] data) throws IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey);
+        return cipher.doFinal(data);
     }
 }

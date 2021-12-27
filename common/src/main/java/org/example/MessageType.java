@@ -8,4 +8,5 @@ public enum MessageType {
     CLIENT_ID,
     PARTICIPATOR_COUNT,
     TEXT,
+    ENCRYPT_DATA,
 }

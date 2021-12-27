@@ -3,6 +3,7 @@ package org.example;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 public class MasterClientApplication extends ClientApplication {
@@ -16,4 +17,9 @@ public class MasterClientApplication extends ClientApplication {
         ClientApplication.run(new MasterClientApplication());
     }
 
+    @Override
+    protected void afterExchange() throws Exception {
+        super.afterExchange();
+        Message.write(MessageType.ENCRYPT_DATA, KeyExchange.encrypt(secretKey, data.getBytes(StandardCharsets.UTF_8)), socketChannel);
+    }
 }
