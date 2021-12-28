@@ -9,7 +9,6 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -148,8 +147,7 @@ public class ClientApplication {
 
     private void readEncryptData(Message message, SelectionKey key) {
         byte[] data = message.getData();
-        data = KeyExchange.decrypt(secretKey, data);
-        System.out.println(new String(data, StandardCharsets.UTF_8));
+        readEncryptDataCallback(KeyExchange.decrypt(secretKey, data));
     }
 
 
@@ -159,5 +157,8 @@ public class ClientApplication {
 
     protected void afterExchange() throws Exception {
 //        log.error("secret={}", Hex.encodeHexString(secretKey.getEncoded()));
+    }
+
+    protected void readEncryptDataCallback(byte[] data) {
     }
 }
