@@ -1,4 +1,4 @@
-rootProject.name = 'key-push'
+rootProject.name = 'key-exchange'
 include 'server'
 include 'wallet-client'
 include 'master-client'
