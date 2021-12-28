@@ -30,12 +30,6 @@ public class KeyExchange {
         return generator.generateKeyPair();
     }
 
-    public static PublicKey decodePublicKey(byte[] data) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        KeyFactory keyFactory = KeyFactory.getInstance("DH");
-        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(data);
-        return keyFactory.generatePublic(x509KeySpec);
-    }
-
     public static Key decodeKey(byte[] data) throws NoSuchAlgorithmException, InvalidKeySpecException {
         KeyFactory keyFactory = KeyFactory.getInstance("DH");
         X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(data);
@@ -46,10 +40,10 @@ public class KeyExchange {
         return KeyAgreement.getInstance("DH");
     }
 
-    public static Key generateMiddleKey(KeyAgreement keyAgreement, PrivateKey privateKey, PublicKey publicKey, boolean lastPhase) throws NoSuchAlgorithmException, InvalidKeyException {
-        keyAgreement.init(privateKey);
-        return keyAgreement.doPhase(publicKey, lastPhase);
-    }
+//    public static Key generateMiddleKey(KeyAgreement keyAgreement, PrivateKey privateKey, PublicKey publicKey, boolean lastPhase) throws NoSuchAlgorithmException, InvalidKeyException {
+//        keyAgreement.init(privateKey);
+//        return keyAgreement.doPhase(publicKey, lastPhase);
+//    }
 
     public static SecretKey generateSecretKey(KeyAgreement keyAgreement) throws NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException {
         return new SecretKeySpec(keyAgreement.generateSecret(), 0, 16, "AES");

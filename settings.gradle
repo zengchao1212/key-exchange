@@ -3,4 +3,5 @@ include 'server'
 include 'wallet-client'
 include 'master-client'
 include 'common'
+include 'other-client'
 

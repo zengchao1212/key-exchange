@@ -4,16 +4,18 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 @Slf4j
 public class MasterClientApplication extends ClientApplication {
     private String data = "大家好，这里是中国";
 
-    public MasterClientApplication() throws IOException {
+    public MasterClientApplication() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         super(ParticipatorInfo.Type.MASTER);
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         ClientApplication.run(new MasterClientApplication());
     }
 

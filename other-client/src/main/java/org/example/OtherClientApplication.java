@@ -7,14 +7,14 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 @Slf4j
-public class WalletClientApplication extends ClientApplication {
-    private String data;
+public class OtherClientApplication extends ClientApplication {
 
-    public WalletClientApplication() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        super(ParticipatorInfo.Type.WALLET);
+    public OtherClientApplication() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        super(ParticipatorInfo.Type.OTHER);
     }
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        ClientApplication.run(new WalletClientApplication());
+        ClientApplication.run(new OtherClientApplication());
     }
+
 }

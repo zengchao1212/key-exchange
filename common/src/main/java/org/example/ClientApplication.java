@@ -13,9 +13,8 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.example.MessageType.*;
 
@@ -24,19 +23,19 @@ public class ClientApplication {
     protected final SocketChannel socketChannel;
     private final AtomicBoolean shutdown;
     private final Selector selector;
-    private final List<Key> allMidKey;
     private final ParticipatorInfo.Type type;
     protected volatile SecretKey secretKey;
-    private volatile PrivateKey privateKey;
-    private volatile Integer participatorCount;
-    private volatile KeyAgreement keyAgreement;
+    private final AtomicInteger exchangeTime;
+    private final KeyAgreement keyAgreement;
+    private volatile int clientCount;
 
-    public ClientApplication(ParticipatorInfo.Type type) throws IOException {
+    public ClientApplication(ParticipatorInfo.Type type) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        exchangeTime = new AtomicInteger(0);
+        keyAgreement = KeyExchange.getKeyAgreement();
         shutdown = new AtomicBoolean(false);
         selector = Selector.open();
         socketChannel = SocketChannel.open();
         socketChannel.configureBlocking(false);
-        allMidKey = new CopyOnWriteArrayList<>();
         this.type = type;
     }
 
@@ -108,8 +107,8 @@ public class ClientApplication {
             readParticipatorCount(message, key);
         } else if (message.getMessageType() == SERVER_PUB) {
             readServerPubKey(message, key);
-        } else if (message.getMessageType() == CLIENT_PUB) {
-            readClientPubKey(message, key);
+//        } else if (message.getMessageType() == CLIENT_PUB) {
+//            readClientPubKey(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readClientMidKey(message, key);
         } else if (message.getMessageType() == ENCRYPT_DATA) {
@@ -120,39 +119,39 @@ public class ClientApplication {
     }
 
     private void readClientId(Message message, SelectionKey key) throws IOException {
-        int seqId = (int) message.getData()[0];
+        int seqId = message.getData()[0];
+        log.error("seqId={}", seqId);
         Message.write(CLIENT_ID, new byte[]{(byte) seqId}, socketChannel);
     }
 
     private void readParticipatorCount(Message message, SelectionKey key) {
-        participatorCount = (int) message.getData()[0];
+        clientCount = message.getData()[0];
     }
 
 
-    private void readServerPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidAlgorithmParameterException, IOException {
-        PublicKey serverPubKey = KeyExchange.decodePublicKey(message.getData());
-
+    private void readServerPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidAlgorithmParameterException, IOException, InvalidKeyException {
+        PublicKey serverPubKey = (PublicKey) KeyExchange.decodeKey(message.getData());
         KeyPair keyPair = KeyExchange.generate(serverPubKey);
-        privateKey = keyPair.getPrivate();
-        Message.write(CLIENT_PUB, keyPair.getPublic().getEncoded(), socketChannel);
+        PrivateKey privateKey = keyPair.getPrivate();
+        keyAgreement.init(privateKey);
+        Message.write(MID_KEY, keyPair.getPublic().getEncoded(), socketChannel);
     }
 
-    private void readClientPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, IOException {
-        keyAgreement = KeyExchange.getKeyAgreement();
-        Key midKey = KeyExchange.generateMiddleKey(keyAgreement, privateKey, KeyExchange.decodePublicKey(message.getData()), false);
-        Message.write(MID_KEY, midKey.getEncoded(), socketChannel);
-    }
+//    private void readClientPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, IOException {
+//
+//        Key midKey = KeyExchange.generateMiddleKey(keyAgreement, privateKey, KeyExchange.decodePublicKey(message.getData()), false);
+//        Message.write(MID_KEY, midKey.getEncoded(), socketChannel);
+//    }
 
     private void readClientMidKey(Message message, SelectionKey key) throws Exception {
-        allMidKey.add(KeyExchange.decodeKey(message.getData()));
-        if (allMidKey.size() == participatorCount - 2) {
-            for (int i = 0; i < allMidKey.size() - 1; i++) {
-                keyAgreement.doPhase(allMidKey.get(i), false);
-            }
-            keyAgreement.doPhase(allMidKey.get(allMidKey.size() - 1), true);
-
+        Key midKey = KeyExchange.decodeKey(message.getData());
+        if (exchangeTime.incrementAndGet() == clientCount - 1) {
+            keyAgreement.doPhase(midKey, true);
             secretKey = KeyExchange.generateSecretKey(keyAgreement);
             afterExchange();
+        } else {
+            midKey = keyAgreement.doPhase(midKey, false);
+            Message.write(MID_KEY, midKey.getEncoded(), socketChannel);
         }
     }
 
