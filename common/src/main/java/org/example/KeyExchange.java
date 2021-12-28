@@ -1,11 +1,12 @@
 package org.example;
 
-import javax.crypto.*;
+import javax.crypto.Cipher;
+import javax.crypto.KeyAgreement;
+import javax.crypto.SecretKey;
 import javax.crypto.interfaces.DHPublicKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 
 public class KeyExchange {
@@ -18,46 +19,65 @@ public class KeyExchange {
         }
     }
 
-    public static KeyPair generate() throws NoSuchAlgorithmException {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("DH");
-        return generator.generateKeyPair();
+    public static KeyPair generate() {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("DH");
+            return generator.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static KeyPair generate(PublicKey serverPubKey) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
-        AlgorithmParameterSpec parameterSpec = ((DHPublicKey) serverPubKey).getParams();
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("DH");
-        generator.initialize(parameterSpec);
-        return generator.generateKeyPair();
+    public static KeyPair generate(PublicKey serverPubKey) {
+        try {
+            AlgorithmParameterSpec parameterSpec = ((DHPublicKey) serverPubKey).getParams();
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("DH");
+            generator.initialize(parameterSpec);
+            return generator.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static Key decodeKey(byte[] data) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        KeyFactory keyFactory = KeyFactory.getInstance("DH");
-        X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(data);
-        return keyFactory.generatePublic(x509KeySpec);
+    public static Key decodeKey(byte[] data) {
+        try {
+            KeyFactory keyFactory = KeyFactory.getInstance("DH");
+            X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(data);
+            return keyFactory.generatePublic(x509KeySpec);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static KeyAgreement getKeyAgreement() throws NoSuchAlgorithmException, InvalidKeyException {
-        return KeyAgreement.getInstance("DH");
+    public static KeyAgreement getKeyAgreement() {
+        try {
+            return KeyAgreement.getInstance("DH");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-//    public static Key generateMiddleKey(KeyAgreement keyAgreement, PrivateKey privateKey, PublicKey publicKey, boolean lastPhase) throws NoSuchAlgorithmException, InvalidKeyException {
-//        keyAgreement.init(privateKey);
-//        return keyAgreement.doPhase(publicKey, lastPhase);
-//    }
-
-    public static SecretKey generateSecretKey(KeyAgreement keyAgreement) throws NoSuchAlgorithmException, InvalidKeyException, NoSuchPaddingException {
+    public static SecretKey generateSecretKey(KeyAgreement keyAgreement) {
         return new SecretKeySpec(keyAgreement.generateSecret(), 0, 16, "AES");
     }
 
-    public static byte[] encrypt(SecretKey secretKey, byte[] data) throws IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-        return cipher.doFinal(data);
+    public static byte[] encrypt(SecretKey secretKey, byte[] data) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            return cipher.doFinal(data);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static byte[] decrypt(SecretKey secretKey, byte[] data) throws IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
-        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-        cipher.init(Cipher.DECRYPT_MODE, secretKey);
-        return cipher.doFinal(data);
+    public static byte[] decrypt(SecretKey secretKey, byte[] data) {
+        try {
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+            return cipher.doFinal(data);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

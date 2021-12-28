@@ -10,7 +10,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -29,7 +28,7 @@ public class ServerApplication {
 
     private final AtomicBoolean shutdown;
     private final Selector selector;
-    private final int clientCount = 2;
+    private final int clientCount = 4;
     private final AtomicInteger currentClientCount;
     private final AtomicInteger exchangeTime;
     private final AtomicInteger seq;
@@ -254,8 +253,6 @@ public class ServerApplication {
             readClientType(message, key);
         } else if (message.getMessageType() == CLIENT_ID) {
             readClientId(message, key);
-//        } else if (message.getMessageType() == CLIENT_PUB) {
-//            readClientPubKey(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readMidKey(message, key);
         } else if (message.getMessageType() == ENCRYPT_DATA) {
@@ -294,12 +291,7 @@ public class ServerApplication {
         info.setClientId(id);
     }
 
-//    private void readClientPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException {
-//        ParticipatorInfo info = (ParticipatorInfo) key.attachment();
-//        allMidKey.set(info.getClientId(), KeyExchange.decodeKey(message.getData()));
-//    }
-
-    private void readMidKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    private void readMidKey(Message message, SelectionKey key) {
         ParticipatorInfo info = (ParticipatorInfo) key.attachment();
         clientKeys.set(info.getClientId() - 1, KeyExchange.decodeKey(message.getData()));
     }
