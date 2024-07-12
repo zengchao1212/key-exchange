@@ -1,7 +1,15 @@
+pluginManagement {
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/central'
+        }
+    }
+}
 rootProject.name = 'key-exchange'
 include 'server'
 include 'wallet-client'
 include 'master-client'
 include 'common'
 include 'other-client'
+include 'util-client'
 
