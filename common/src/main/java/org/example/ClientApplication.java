@@ -9,8 +9,10 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.security.*;
-import java.security.spec.InvalidKeySpecException;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -103,8 +105,6 @@ public class ClientApplication {
             readClientId(message, key);
         } else if (message.getMessageType() == PARTICIPATOR_COUNT) {
             readParticipatorCount(message, key);
-        } else if (message.getMessageType() == SERVER_PUB) {
-            readServerPubKey(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readClientMidKey(message, key);
         } else if (message.getMessageType() == ENCRYPT_DATA) {
@@ -114,23 +114,18 @@ public class ClientApplication {
         }
     }
 
-    private void readClientId(Message message, SelectionKey key) throws IOException {
+    private void readClientId(Message message, SelectionKey key) throws IOException, InvalidKeyException {
         int seqId = message.getData()[0];
         log.error("seqId={}", seqId);
         Message.write(CLIENT_ID, new byte[]{(byte) seqId}, socketChannel);
+        KeyPair keyPair = KeyExchange.generate();
+        PrivateKey privateKey = keyPair.getPrivate();
+        keyAgreement.init(privateKey);
+        Message.write(MID_KEY, keyPair.getPublic().getEncoded(), socketChannel);
     }
 
     private void readParticipatorCount(Message message, SelectionKey key) {
         clientCount = message.getData()[0];
-    }
-
-
-    private void readServerPubKey(Message message, SelectionKey key) throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidAlgorithmParameterException, IOException, InvalidKeyException {
-        PublicKey serverPubKey = (PublicKey) KeyExchange.decodeKey(message.getData());
-        KeyPair keyPair = KeyExchange.generate(serverPubKey);
-        PrivateKey privateKey = keyPair.getPrivate();
-        keyAgreement.init(privateKey);
-        Message.write(MID_KEY, keyPair.getPublic().getEncoded(), socketChannel);
     }
 
     private void readClientMidKey(Message message, SelectionKey key) throws Exception {

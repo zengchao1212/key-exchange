@@ -3,10 +3,8 @@ package org.example;
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
 import javax.crypto.SecretKey;
-import javax.crypto.interfaces.DHPublicKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.*;
-import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 
 public class KeyExchange {
@@ -28,18 +26,7 @@ public class KeyExchange {
         }
     }
 
-    public static KeyPair generate(PublicKey serverPubKey) {
-        try {
-            AlgorithmParameterSpec parameterSpec = ((DHPublicKey) serverPubKey).getParams();
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("DH");
-            generator.initialize(parameterSpec);
-            return generator.generateKeyPair();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public static Key decodeKey(byte[] data) {
+    public static PublicKey decodeKey(byte[] data) {
         try {
             KeyFactory keyFactory = KeyFactory.getInstance("DH");
             X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(data);

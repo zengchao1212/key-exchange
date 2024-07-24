@@ -9,7 +9,9 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +36,6 @@ public class ServerApplication {
     private final AtomicInteger seq;
     private final AtomicBoolean masterJoin;
     private final AtomicBoolean walletJoin;
-    private final PublicKey publicKey;
     private final List<Key> clientKeys;
     private final ServerSocketChannel serverSocketChannel;
 
@@ -47,8 +48,6 @@ public class ServerApplication {
         walletJoin = new AtomicBoolean(false);
         selector = Selector.open();
         clientKeys = new CopyOnWriteArrayList<>(new Key[clientCount]);
-        KeyPair keyPair = KeyExchange.generate();
-        publicKey = keyPair.getPublic();
 
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
@@ -92,11 +91,10 @@ public class ServerApplication {
                                 return;
                             }
                             key.attach(seqId);
-                            log.info(clientChannel.getRemoteAddress().toString() + " 已连接");
+                            log.info("{} 已连接", clientChannel.getRemoteAddress().toString());
                             clientChannel.configureBlocking(false);
                             Message.write(CLIENT_ID, new byte[]{(byte) seqId}, clientChannel);
                             Message.write(PARTICIPATOR_COUNT, new byte[]{(byte) clientCount}, clientChannel);
-                            Message.write(SERVER_PUB, publicKey.getEncoded(), clientChannel);
                             clientChannel.register(selector, SelectionKey.OP_READ);
 
                         } catch (IOException e) {
@@ -164,7 +162,7 @@ public class ServerApplication {
                 if (keyCount != clientCount) {
                     selector.keys().forEach(key -> {
                         SocketChannel client = (SocketChannel) key.channel();
-                        String msg = String.format("第%d轮，已有%d份中间密钥", exchangeTime.get() + 1, currentClientCount.get());
+                        String msg = String.format("第%d轮，已有%d份中间密钥", exchangeTime.get() + 1, keyCount);
                         try {
                             Message.write(TEXT, msg.getBytes(StandardCharsets.UTF_8), client);
                         } catch (IOException e) {
