@@ -14,8 +14,6 @@ import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -33,21 +31,17 @@ public class ServerApplication {
     private final int clientCount = 4;
     private final AtomicInteger currentClientCount;
     private final AtomicInteger exchangeTime;
-    private final AtomicInteger seq;
     private final AtomicBoolean masterJoin;
     private final AtomicBoolean walletJoin;
-    private final List<Key> clientKeys;
     private final ServerSocketChannel serverSocketChannel;
 
     public ServerApplication() throws IOException, NoSuchAlgorithmException, InvalidKeyException {
-        seq = new AtomicInteger(0);
         currentClientCount = new AtomicInteger(0);
         exchangeTime = new AtomicInteger(0);
         shutdown = new AtomicBoolean(false);
         masterJoin = new AtomicBoolean(false);
         walletJoin = new AtomicBoolean(false);
         selector = Selector.open();
-        clientKeys = new CopyOnWriteArrayList<>(new Key[clientCount]);
 
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
@@ -84,16 +78,13 @@ public class ServerApplication {
                     establishSelector.select(key -> {
                         try {
                             SocketChannel clientChannel = ((ServerSocketChannel) key.channel()).accept();
-                            int seqId = seq.incrementAndGet();
-                            if (seqId > clientCount) {
+                            if (currentClientCount.get() >= clientCount) {
                                 clientChannel.close();
                                 key.cancel();
                                 return;
                             }
-                            key.attach(seqId);
                             log.info("{} 已连接", clientChannel.getRemoteAddress().toString());
                             clientChannel.configureBlocking(false);
-                            Message.write(CLIENT_ID, new byte[]{(byte) seqId}, clientChannel);
                             Message.write(PARTICIPATOR_COUNT, new byte[]{(byte) clientCount}, clientChannel);
                             clientChannel.register(selector, SelectionKey.OP_READ);
 
@@ -157,56 +148,33 @@ public class ServerApplication {
                     log.debug(e.getMessage());
                 }
             }
-            while (true) {
-                long keyCount = clientKeys.stream().filter(Objects::nonNull).count();
-                if (keyCount != clientCount) {
-                    selector.keys().forEach(key -> {
-                        SocketChannel client = (SocketChannel) key.channel();
-                        String msg = String.format("第%d轮，已有%d份中间密钥", exchangeTime.get() + 1, keyCount);
-                        try {
-                            Message.write(TEXT, msg.getBytes(StandardCharsets.UTF_8), client);
-                        } catch (IOException e) {
-                            ParticipatorInfo info = (ParticipatorInfo) key.attachment();
-                            if (info != null) {
-                                if (info.getType() == ParticipatorInfo.Type.MASTER) {
-                                    masterJoin.set(false);
-                                } else if (info.getType() == ParticipatorInfo.Type.WALLET) {
-                                    walletJoin.set(false);
-                                }
-                            }
-                            log.error(e.getMessage());
-                            key.cancel();
-                        }
 
-                    });
-                } else {
-                    List<Key> tmpKeys = new ArrayList<>(clientKeys);
-                    selector.keys().forEach(key -> {
-                        SocketChannel client = (SocketChannel) key.channel();
-                        try {
-                            ParticipatorInfo keyInfo = (ParticipatorInfo) key.attachment();
-                            int clientId = keyInfo.getClientId(), preClientId = clientId - 1;
-                            if (preClientId == 0) {
-                                preClientId = clientCount;
+            while (true) {
+                List<SelectionKey> selectionKeys = new ArrayList<>(selector.keys());
+                for (int i = 0; i < clientCount; i++) {
+                    SelectionKey preKey = selectionKeys.get(i == 0 ? clientCount - 1 : i - 1);
+                    SelectionKey key = selectionKeys.get(i);
+                    SocketChannel client = (SocketChannel) key.channel();
+                    try {
+                        ParticipatorInfo keyInfo = (ParticipatorInfo) preKey.attachment();
+                        Key midKey = keyInfo.getKey();
+                        Message.write(MID_KEY, midKey.getEncoded(), client);
+                    } catch (IOException e) {
+                        ParticipatorInfo info = (ParticipatorInfo) key.attachment();
+                        if (info != null) {
+                            if (info.getType() == ParticipatorInfo.Type.MASTER) {
+                                masterJoin.set(false);
+                            } else if (info.getType() == ParticipatorInfo.Type.WALLET) {
+                                walletJoin.set(false);
                             }
-                            Key midKey = tmpKeys.get(preClientId - 1);
-                            Message.write(MID_KEY, midKey.getEncoded(), client);
-                            clientKeys.set(clientId - 1, null);
-                        } catch (IOException e) {
-                            ParticipatorInfo info = (ParticipatorInfo) key.attachment();
-                            if (info != null) {
-                                if (info.getType() == ParticipatorInfo.Type.MASTER) {
-                                    masterJoin.set(false);
-                                } else if (info.getType() == ParticipatorInfo.Type.WALLET) {
-                                    walletJoin.set(false);
-                                }
-                            }
-                            log.error(e.getMessage());
-                            key.cancel();
                         }
-                    });
-                    exchangeTime.incrementAndGet();
+                        log.error(e.getMessage());
+                        key.cancel();
+                    }
                 }
+                int count = exchangeTime.incrementAndGet();
+                String msg = String.format("第%d轮中间密钥完成", count);
+                log.debug(msg);
 
                 if (exchangeTime.get() == clientCount - 1) {
                     break;
@@ -249,8 +217,6 @@ public class ServerApplication {
 
         if (message.getMessageType() == CLIENT_TYPE) {
             readClientType(message, key);
-        } else if (message.getMessageType() == CLIENT_ID) {
-            readClientId(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readMidKey(message, key);
         } else if (message.getMessageType() == ENCRYPT_DATA) {
@@ -283,15 +249,9 @@ public class ServerApplication {
         }
     }
 
-    private void readClientId(Message message, SelectionKey key) {
-        ParticipatorInfo info = (ParticipatorInfo) key.attachment();
-        int id = message.getData()[0];
-        info.setClientId(id);
-    }
-
     private void readMidKey(Message message, SelectionKey key) {
         ParticipatorInfo info = (ParticipatorInfo) key.attachment();
-        clientKeys.set(info.getClientId() - 1, KeyExchange.decodeKey(message.getData()));
+        info.setKey(KeyExchange.decodeKey(message.getData()));
     }
 
     private void readEncryptData(Message message, SelectionKey key) {

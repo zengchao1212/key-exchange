@@ -101,9 +101,7 @@ public class ClientApplication {
 
     private void read(SelectionKey key) throws Exception {
         Message message = Message.read(socketChannel);
-        if (message.getMessageType() == CLIENT_ID) {
-            readClientId(message, key);
-        } else if (message.getMessageType() == PARTICIPATOR_COUNT) {
+        if (message.getMessageType() == PARTICIPATOR_COUNT) {
             readParticipatorCount(message, key);
         } else if (message.getMessageType() == MID_KEY) {
             readClientMidKey(message, key);
@@ -114,18 +112,12 @@ public class ClientApplication {
         }
     }
 
-    private void readClientId(Message message, SelectionKey key) throws IOException, InvalidKeyException {
-        int seqId = message.getData()[0];
-        log.error("seqId={}", seqId);
-        Message.write(CLIENT_ID, new byte[]{(byte) seqId}, socketChannel);
+    private void readParticipatorCount(Message message, SelectionKey key) throws InvalidKeyException, IOException {
+        clientCount = message.getData()[0];
         KeyPair keyPair = KeyExchange.generate();
         PrivateKey privateKey = keyPair.getPrivate();
         keyAgreement.init(privateKey);
         Message.write(MID_KEY, keyPair.getPublic().getEncoded(), socketChannel);
-    }
-
-    private void readParticipatorCount(Message message, SelectionKey key) {
-        clientCount = message.getData()[0];
     }
 
     private void readClientMidKey(Message message, SelectionKey key) throws Exception {
